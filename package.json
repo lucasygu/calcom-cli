@@ -1,0 +1,60 @@
+{
+  "name": "calcom-cli",
+  "version": "0.1.0",
+  "description": "CLI and MCP server for the Cal.com API v2 — bookings, event types, schedules, slots, and more for AI agents",
+  "type": "module",
+  "bin": {
+    "calcom": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./mcp": "./dist/mcp.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "AGENTS.md"
+  ],
+  "homepage": "https://github.com/bcharleson/calcom-cli",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bcharleson/calcom-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/bcharleson/calcom-cli/issues"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx src/index.ts",
+    "dev:mcp": "tsx src/mcp.ts",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^8.3.0",
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "commander": "^14.0.3",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "calcom",
+    "cal.com",
+    "cli",
+    "mcp",
+    "scheduling",
+    "calendar",
+    "bookings",
+    "agent"
+  ],
+  "license": "MIT"
+}
