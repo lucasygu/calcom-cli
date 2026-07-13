@@ -1,7 +1,26 @@
 import { AuthError, NotFoundError, RateLimitError, ServerError, ValidationError } from './errors.js';
 
 export const BASE_URL = 'https://api.cal.com/v2';
-const API_VERSION = '2024-08-13';
+
+// Cal.com's API v2 pins a different `cal-api-version` per resource. Sending one
+// global version 404s the endpoints that expect an older one (their routing is
+// version-scoped). Empirically verified against api.cal.com (2026-07): most
+// resources accept 2024-08-13, but event-types and schedules do not.
+const DEFAULT_API_VERSION = '2024-08-13';
+const API_VERSION_BY_PREFIX: Array<[string, string]> = [
+  ['/event-types', '2024-06-14'],
+  ['/schedules', '2024-06-11'],
+];
+
+function apiVersionForPath(path: string): string {
+  for (const [prefix, version] of API_VERSION_BY_PREFIX) {
+    if (path === prefix || path.startsWith(`${prefix}/`) || path.startsWith(`${prefix}?`)) {
+      return version;
+    }
+  }
+  return DEFAULT_API_VERSION;
+}
+
 const DEFAULT_TIMEOUT = 30_000;
 const WRITE_TIMEOUT = 15_000;
 const MAX_RETRIES = 3;
@@ -26,12 +45,12 @@ export class CalcomClient {
     this.timeout = opts.timeout ?? DEFAULT_TIMEOUT;
   }
 
-  private headers(): Record<string, string> {
+  private headers(path: string): Record<string, string> {
     return {
       Authorization: `Bearer ${this.apiKey}`,
       'Content-Type': 'application/json',
       Accept: 'application/json',
-      'cal-api-version': API_VERSION,
+      'cal-api-version': apiVersionForPath(path),
       'User-Agent': 'calcom-cli/0.1.0',
     };
   }
@@ -63,7 +82,7 @@ export class CalcomClient {
     try {
       const res = await fetch(url, {
         method: method.toUpperCase(),
-        headers: this.headers(),
+        headers: this.headers(path),
         body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
         signal: controller.signal,
       });
@@ -81,9 +100,14 @@ export class CalcomClient {
       }
 
       if (!res.ok) {
+        // Cal.com error shape is { status: 'error', error: { code, message, details } }.
+        // Dig into error.message rather than stringifying the object (which printed
+        // "[object Object]"). Fall back through the other shapes we've seen.
+        const errObj = data?.error;
         const msg =
           data?.message ??
-          data?.error ??
+          (typeof errObj === 'string' ? errObj : errObj?.message) ??
+          errObj?.details?.message ??
           (data?.errors && Array.isArray(data.errors)
             ? data.errors.map((d: any) => d.message ?? String(d)).join('; ')
             : undefined) ??
