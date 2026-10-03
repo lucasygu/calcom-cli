@@ -126,7 +126,8 @@ export const bookingsCreateCommand: CommandDefinition = {
     };
     if (input.guests) body.guests = input.guests.split(',').map((g: string) => g.trim());
     if (input.meetingUrl) body.meetingUrl = input.meetingUrl;
-    if (input.notes) body.notes = input.notes;
+    // API v2 takes notes as a booking-field response, not a top-level `notes`.
+    if (input.notes) body.bookingFieldsResponses = { notes: input.notes };
     if (input.metadata) {
       try { body.metadata = JSON.parse(input.metadata); } catch { body.metadata = {}; }
     }
