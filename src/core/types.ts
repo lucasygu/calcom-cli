@@ -29,6 +29,12 @@ export interface CommandDefinition<TInput extends z.ZodObject<any> = z.ZodObject
   endpoint: { method: string; path: string };
   fieldMappings: Record<string, 'path' | 'query' | 'body'>;
   paginated?: boolean;
+  /**
+   * 'optional': the command also works without an API key (it calls Cal.com's
+   * public endpoints, the way a booking page does) and degrades the parts that
+   * need auth. Default is 'required'.
+   */
+  auth?: 'required' | 'optional';
   handler: (input: z.infer<TInput>, client: CalcomClient) => Promise<unknown>;
 }
 

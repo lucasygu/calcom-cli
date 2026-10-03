@@ -144,6 +144,40 @@ calcom mcp                      # Start the MCP server (stdio transport)
 
 ---
 
+### Link: book on someone else's page (5 commands)
+
+The attendee side. Give it anyone's public booking link (`cal.com/<user>/<slug>`, an org
+subdomain, or `cal.com/team/<team>/<slug>`). These work without an API key; with one, slots
+are checked against your own connected calendars and your name, email and timezone come from
+your profile.
+
+```bash
+calcom link resolve <url>                        # Event type id, length, locations, owner's timezone
+calcom link slots <url> [options]                # Their open slots, minus your busy times
+  --from <date>             # First day, in --timezone (default: today)
+  --to <date>               # Last day, inclusive (default: 7 days on)
+  --timezone <tz>           # Results timezone (default: your profile's)
+  --all                     # Also list slots that clash with your calendar
+  --summary                 # Only per-day ranges (startsByDay), no slot list
+
+calcom link book <url> --start <iso> [options]   # Dry run unless --confirm
+  --name <name>             # Default: your profile name
+  --email <email>           # Default: your profile email (the invite lands here)
+  --timezone <tz>           # Default: your profile timezone
+  --notes <text>            # Shown to the host
+  --guests <emails>         # Comma-separated
+  --confirm                 # Actually book
+
+calcom link cancel <bookingUid> [--reason <text>] [--confirm]
+calcom link reschedule <bookingUid> --start <iso> [--reason <text>] [--confirm]
+```
+
+`link book` re-checks the slot right before booking and prints the booking `uid`, the
+calendar invite's `iCalUID` (`<uid>@Cal.com`), and the commands to manage it. Anyone holding
+the uid can cancel or move the meeting, so keep it private. Rescheduling issues a new uid.
+With an API key, guest bookings also show up in
+`calcom bookings list --status upcoming --attendee-email <your email>`.
+
 ### Bookings (13 commands)
 
 ```bash
@@ -409,7 +443,7 @@ Stored at `~/.calcom-cli/config.json` with permissions `0600`:
 |----------|-------|
 | Base URL | `https://api.cal.com/v2` |
 | Auth | `Authorization: Bearer cal_live_xxxx` |
-| Version Header | `cal-api-version: 2024-08-13` |
+| Version Header | `cal-api-version: 2024-08-13` (per path: `/event-types` 2024-06-14, `/schedules` 2024-06-11, `/slots` 2024-09-04) |
 | Rate Limit | 120 requests/min |
 | Pagination | Offset-based (`take` + `skip`) |
 | Key Prefixes | `cal_` (test), `cal_live_` (production) |
@@ -429,6 +463,7 @@ npm run dev:mcp                     # test MCP server
 # Production build
 npm run build                       # → dist/index.js + dist/mcp.js
 npm run typecheck                   # TypeScript strict mode
+npm test                            # Unit tests (node:test)
 
 # Adding a new command:
 # 1. Add CommandDefinition in src/commands/<group>/index.ts

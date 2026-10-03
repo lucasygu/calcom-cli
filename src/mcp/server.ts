@@ -5,12 +5,18 @@ import { CalcomClient } from '../core/client.js';
 import { allCommands } from '../commands/index.js';
 
 export async function startMcpServer(): Promise<void> {
-  const apiKey = await resolveApiKey();
-  const client = new CalcomClient({ apiKey });
+  // Without a key, only the public-endpoint tools (auth: 'optional') can succeed;
+  // the rest return a clear auth error instead of the server failing to start.
+  let client: CalcomClient;
+  try {
+    client = new CalcomClient({ apiKey: await resolveApiKey() });
+  } catch {
+    client = new CalcomClient({});
+  }
 
   const server = new McpServer({
     name: 'calcom',
-    version: '0.1.0',
+    version: '0.2.0',
   });
 
   for (const cmdDef of allCommands) {

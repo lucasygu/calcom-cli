@@ -1,9 +1,9 @@
 # calcom-cli — Agent Implementation Guide
 
 MCP server name: `calcom`
-Total tools: 61
+Total tools: 66
 
-Use this guide to understand every available Cal.com MCP tool, its input schema, and common workflow patterns. Each tool maps 1:1 to a Cal.com API v2 endpoint.
+Use this guide to understand every available Cal.com MCP tool, its input schema, and common workflow patterns. Most tools map 1:1 to a Cal.com API v2 endpoint. The `link_*` tools are composite: they book on **someone else's** public link, the way a booking page does.
 
 ---
 
@@ -33,6 +33,35 @@ CAL_API_KEY=cal_live_xxxx claude mcp add calcom -- npx calcom-cli mcp
 ---
 
 ## Tool Reference
+
+### Link: booking on someone else's Cal.com link (5 tools)
+
+These work **without an API key** (public endpoints, exactly like a booking page). With a key,
+`link_slots` and `link_book` also check your own connected calendars for clashes and default
+the attendee to your profile. Writes are **dry runs unless `confirm: true`**.
+
+#### `link_resolve`
+`{ url }` → `{ username, slug, eventTypeId, title, lengthInMinutes, locations, ownerScheduleTimeZone }`.
+Handles `cal.com/<user>/<slug>` (incl. `x_y` links whose account is `x-y`), `<org>.cal.com/...`
+and `cal.com/team/<team>/<slug>`.
+
+#### `link_slots`
+`{ url, from?, to?, timeZone?, all?, summary? }` → `{ event, timeZone, conflictCheck, summary, startsByDay, slots[] }`.
+`startsByDay` collapses free start times into ranges per day, e.g. `{ "2026-10-06 Tue": ["14:30–15:30"] }`;
+read it first, it is what you show a person. `summary: true` omits `slots`.
+Each slot: `{ start, end, date, time, ownerTime?, conflict? }`. Clashing slots are dropped unless `all`.
+
+#### `link_book`
+`{ url, start, name?, email?, timeZone?, notes?, guests?, confirm? }`. Without `confirm`: returns
+`{ dryRun, wouldBook, slotOpen, conflictWithMyCalendar }`. With it: re-checks the slot, books
+anonymously, returns `{ uid, status, start, end, meetingUrl, hosts, attendees, iCalUID, manage, next }`.
+`iCalUID` (`<uid>@Cal.com`) finds the calendar invite; Google Calendar may keep an unanswered
+invite hidden until the attendee accepts it.
+`notes` reaches the host as `bookingFieldsResponses.notes`.
+
+#### `link_reschedule` / `link_cancel`
+`{ uid, start, reason?, confirm? }` / `{ uid, reason?, confirm? }`. The booking UID alone
+authorizes these (no key needed), so **treat UIDs as secrets**. Reschedule returns a **new** UID.
 
 ### Profile (2 tools)
 

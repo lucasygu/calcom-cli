@@ -20,8 +20,10 @@ import { conferencingCommands } from './conferencing/index.js';
 import { destinationCalendarsCommands } from './destination-calendars/index.js';
 import { selectedCalendarsCommands } from './selected-calendars/index.js';
 import { stripeCommands } from './stripe/index.js';
+import { linkCommands } from './link/index.js';
 
 export const allCommands: CommandDefinition[] = [
+  ...linkCommands,
   ...bookingsCommands,
   ...eventTypesCommands,
   ...schedulesCommands,
@@ -103,8 +105,14 @@ export function registerAllCommands(program: Command): void {
         if (instanceOpts.fields) globalOpts.fields = instanceOpts.fields;
 
         try {
-          const apiKey = await resolveApiKey(globalOpts.apiKey);
-          const client = new CalcomClient({ apiKey });
+          let client: CalcomClient;
+          try {
+            client = new CalcomClient({ apiKey: await resolveApiKey(globalOpts.apiKey) });
+          } catch (authErr) {
+            // Public-endpoint commands (e.g. `link resolve`) still work unauthenticated.
+            if (cmdDef.auth !== 'optional') throw authErr;
+            client = new CalcomClient({});
+          }
 
           // Build input: positional args first, then options
           const input: Record<string, unknown> = {};

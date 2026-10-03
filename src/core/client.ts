@@ -11,8 +11,16 @@ const API_VERSION_BY_PREFIX: Array<[string, string]> = [
   ['/event-types', '2024-06-14'],
   ['/schedules', '2024-06-11'],
 ];
+// Exact-path pins, checked before the prefixes. The newer `/slots` endpoint
+// (params start/end/timeZone) needs 2024-09-04, while the legacy
+// `/slots/available` and `/slots/reserve` must stay on the default.
+const API_VERSION_EXACT: Record<string, string> = {
+  '/slots': '2024-09-04',
+};
 
 function apiVersionForPath(path: string): string {
+  const exact = API_VERSION_EXACT[path];
+  if (exact) return exact;
   for (const [prefix, version] of API_VERSION_BY_PREFIX) {
     if (path === prefix || path.startsWith(`${prefix}/`) || path.startsWith(`${prefix}?`)) {
       return version;
@@ -26,14 +34,15 @@ const WRITE_TIMEOUT = 15_000;
 const MAX_RETRIES = 3;
 
 export interface CalcomClientOptions {
-  apiKey: string;
+  /** Omit for an anonymous client that can only reach Cal.com's public endpoints. */
+  apiKey?: string;
   baseUrl?: string;
   maxRetries?: number;
   timeout?: number;
 }
 
 export class CalcomClient {
-  private apiKey: string;
+  private apiKey?: string;
   private baseUrl: string;
   private maxRetries: number;
   private timeout: number;
@@ -45,14 +54,29 @@ export class CalcomClient {
     this.timeout = opts.timeout ?? DEFAULT_TIMEOUT;
   }
 
+  /** True when the client carries an API key. */
+  get authenticated(): boolean {
+    return Boolean(this.apiKey);
+  }
+
+  /** A client for public endpoints only: the same calls a booking page makes. */
+  anonymous(): CalcomClient {
+    return new CalcomClient({
+      baseUrl: this.baseUrl,
+      maxRetries: this.maxRetries,
+      timeout: this.timeout,
+    });
+  }
+
   private headers(path: string): Record<string, string> {
-    return {
-      Authorization: `Bearer ${this.apiKey}`,
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       Accept: 'application/json',
       'cal-api-version': apiVersionForPath(path),
-      'User-Agent': 'calcom-cli/0.1.0',
+      'User-Agent': 'calcom-cli/0.2.0',
     };
+    if (this.apiKey) headers.Authorization = `Bearer ${this.apiKey}`;
+    return headers;
   }
 
   private async request<T>(

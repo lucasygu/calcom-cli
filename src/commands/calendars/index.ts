@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { executeCommand } from '../../core/handler.js';
+import { myBusyTimes } from '../../core/busy.js';
 import type { CommandDefinition } from '../../core/types.js';
 
 export const calendarsListCommand: CommandDefinition = {
@@ -19,13 +20,14 @@ export const calendarsBusyCommand: CommandDefinition = {
   name: 'calendars_busy',
   group: 'calendars',
   subcommand: 'busy',
-  description: 'Get busy times from connected calendars within a date range',
-  examples: ['calcom calendars busy --date-from "2025-03-20" --date-to "2025-03-27"'],
+  description:
+    'Get busy times from your connected calendars (the ones Cal.com checks for conflicts) within a date range',
+  examples: ['calcom calendars busy --date-from "2025-03-20" --date-to "2025-03-27" --timezone America/Toronto'],
   inputSchema: z.object({
     dateFrom: z.string().describe('Start date (YYYY-MM-DD or ISO)'),
     dateTo: z.string().describe('End date (YYYY-MM-DD or ISO)'),
-    loggedInUsersTz: z.string().optional().describe('Timezone of the logged in user'),
-    credentialId: z.coerce.number().optional().describe('Filter by calendar credential ID'),
+    loggedInUsersTz: z.string().optional().describe('Timezone of the logged in user (default UTC)'),
+    credentialId: z.coerce.number().optional().describe('Only this calendar credential'),
   }),
   cliMappings: {
     options: [
@@ -35,14 +37,16 @@ export const calendarsBusyCommand: CommandDefinition = {
       { field: 'credentialId', flags: '--credential-id <id>', description: 'Calendar credential ID' },
     ],
   },
-  endpoint: { method: 'GET', path: '/calendars/busy' },
-  fieldMappings: {
-    dateFrom: 'query',
-    dateTo: 'query',
-    loggedInUsersTz: 'query',
-    credentialId: 'query',
+  // The old path `/calendars/busy` does not exist (404). The real endpoint is
+  // `/calendars/busy-times`, which needs each calendar listed explicitly.
+  endpoint: { method: 'GET', path: '/calendars/busy-times' },
+  fieldMappings: {},
+  handler: async (input, client) => {
+    const result = await myBusyTimes(client, input.dateFrom, input.dateTo, input.loggedInUsersTz ?? 'UTC', {
+      credentialId: input.credentialId,
+    });
+    return result;
   },
-  handler: (input, client) => executeCommand(calendarsBusyCommand, input, client),
 };
 
 export const calendarsCheckCommand: CommandDefinition = {
