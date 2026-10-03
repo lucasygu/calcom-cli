@@ -32,20 +32,21 @@ export const stripeSaveCredentialsCommand: CommandDefinition = {
   name: 'stripe_save_credentials',
   group: 'stripe',
   subcommand: 'save-credentials',
-  description: 'Save Stripe credentials (typically after OAuth callback)',
-  examples: ['calcom stripe save-credentials --code "auth_code_here"'],
+  description: 'Save Stripe credentials: completes the OAuth callback with its code and state',
+  examples: ['calcom stripe save-credentials --code "auth_code_here" --state "state_here"'],
   inputSchema: z.object({
     code: z.string().describe('Stripe authorization code from OAuth callback'),
-    state: z.string().optional().describe('OAuth state parameter'),
+    state: z.string().describe('OAuth state parameter from the same callback'),
   }),
   cliMappings: {
     options: [
       { field: 'code', flags: '--code <code>', description: 'Authorization code (required)' },
-      { field: 'state', flags: '--state <state>', description: 'OAuth state' },
+      { field: 'state', flags: '--state <state>', description: 'OAuth state (required)' },
     ],
   },
-  endpoint: { method: 'POST', path: '/stripe/credentials' },
-  fieldMappings: { code: 'body', state: 'body' },
+  // The callback route is GET /stripe/save?code&state; /stripe/credentials does not exist.
+  endpoint: { method: 'GET', path: '/stripe/save' },
+  fieldMappings: { code: 'query', state: 'query' },
   handler: (input, client) => executeCommand(stripeSaveCredentialsCommand, input, client),
 };
 

@@ -1,6 +1,21 @@
 import { z } from 'zod';
 import { executeCommand } from '../../core/handler.js';
+import { ValidationError } from '../../core/errors.js';
 import type { CommandDefinition } from '../../core/types.js';
+
+/**
+ * `disableGuests` is an output-only field: the event-type inputs have no such
+ * property and the API strips it silently, so the flag never did anything.
+ * Fail loudly instead of pretending.
+ */
+function rejectDisableGuests(input: { disableGuests?: boolean }): void {
+  if (input.disableGuests !== undefined) {
+    throw new ValidationError(
+      '--disable-guests is not supported: Cal.com ignores disableGuests on input. ' +
+        'Hide the guests booking field instead (bookingFields entry {"slug":"guests","hidden":true}) in the Cal.com app.',
+    );
+  }
+}
 
 export const eventTypesListCommand: CommandDefinition = {
   name: 'event_types_list',
@@ -99,17 +114,17 @@ export const eventTypesCreateCommand: CommandDefinition = {
     scheduleId: 'body',
   },
   handler: async (input, client) => {
-    const body: Record<string, unknown> = { ...input };
-    if (input.locations) {
-      try { body.locations = JSON.parse(input.locations); } catch { /* keep as string */ }
-    }
-    delete body.locations;
+    rejectDisableGuests(input);
     const finalBody: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(body)) {
-      if (v !== undefined) finalBody[k] = v;
+    for (const [k, v] of Object.entries(input)) {
+      if (v !== undefined && k !== 'locations') finalBody[k] = v;
     }
     if (input.locations) {
-      try { finalBody.locations = JSON.parse(input.locations); } catch { /* skip */ }
+      try {
+        finalBody.locations = JSON.parse(input.locations);
+      } catch {
+        throw new ValidationError('--locations must be a JSON array, e.g. [{"type":"integration","integration":"google-meet"}]');
+      }
     }
     return client.post('/event-types', finalBody);
   },
@@ -163,7 +178,10 @@ export const eventTypesUpdateCommand: CommandDefinition = {
     afterEventBuffer: 'body',
     scheduleId: 'body',
   },
-  handler: (input, client) => executeCommand(eventTypesUpdateCommand, input, client),
+  handler: (input, client) => {
+    rejectDisableGuests(input);
+    return executeCommand(eventTypesUpdateCommand, input, client);
+  },
 };
 
 export const eventTypesDeleteCommand: CommandDefinition = {

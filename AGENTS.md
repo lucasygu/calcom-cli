@@ -164,7 +164,7 @@ Reschedule a booking to a new time. Notifies all participants.
 {
   "bookingUid": "string — required",
   "start": "string — required, new ISO 8601 start time",
-  "rescheduleReason": "string — optional"
+  "reschedulingReason": "string — optional"
 }
 ```
 
@@ -191,7 +191,7 @@ Update the meeting location or link for a booking.
   "bookingUid": "string — required",
   "type": "string — required: link | integration | address | phone",
   "link": "string — optional, meeting URL",
-  "integration": "string — optional, e.g. google_meet, zoom",
+  "integration": "string — optional, e.g. google-meet, zoom, cal-video",
   "address": "string — optional, physical address",
   "phone": "string — optional, phone number"
 }
@@ -254,8 +254,8 @@ Create a new event type (booking page).
   "slug": "string — required, URL path",
   "lengthInMinutes": "number — required",
   "description": "string — optional",
-  "locations": "string — optional, JSON array of location objects",
-  "disableGuests": "boolean — optional",
+  "locations": "string — optional, JSON array of location objects (invalid JSON is an error)",
+  "disableGuests": "boolean — rejected: Cal.com ignores it on input; hide the guests booking field instead",
   "slotInterval": "number — optional, minutes",
   "minimumBookingNotice": "number — optional, minutes",
   "beforeEventBuffer": "number — optional, minutes",
@@ -273,7 +273,7 @@ Update an existing event type.
   "slug": "string — optional",
   "lengthInMinutes": "number — optional",
   "description": "string — optional",
-  "disableGuests": "boolean — optional",
+  "disableGuests": "boolean — rejected (see event_types_create)",
   "slotInterval": "number — optional",
   "minimumBookingNotice": "number — optional",
   "beforeEventBuffer": "number — optional",
@@ -364,7 +364,9 @@ Temporarily hold a slot before creating a booking (prevents double-booking durin
 ```json
 {
   "eventTypeId": "number — required",
-  "slotUtc": "string — required, ISO 8601 UTC"
+  "slotUtc": "string — required, ISO 8601 UTC",
+  "slotDuration": "number — optional, minutes, for variable-length event types",
+  "reservationDuration": "number — optional, minutes to hold the slot"
 }
 ```
 
@@ -380,7 +382,9 @@ Move a reservation to a different time.
 {
   "uid": "string — required",
   "slotUtc": "string — required, new UTC time",
-  "eventTypeId": "number — optional"
+  "eventTypeId": "number — required",
+  "slotDuration": "number — optional",
+  "reservationDuration": "number — optional"
 }
 ```
 
@@ -412,16 +416,16 @@ Get busy/free times from connected calendars. Useful for understanding real avai
 ```
 
 #### `calendars_check`
-Check the connection health of a calendar credential.
+Check the connection health of a calendar type.
 ```json
-{ "credentialId": "number — required" }
+{ "calendar": "string — required: apple | google | office365 (a type, not a credential ID)" }
 ```
 
 #### `calendars_save_credentials`
 Save calendar credentials (e.g. Apple Calendar app-specific password).
 ```json
 {
-  "type": "string — required, e.g. apple",
+  "type": "string — required: apple (the only type that takes credentials)",
   "username": "string — required",
   "password": "string — required"
 }
@@ -430,7 +434,10 @@ Save calendar credentials (e.g. Apple Calendar app-specific password).
 #### `calendars_disconnect`
 Disconnect a calendar integration.
 ```json
-{ "credentialId": "number — required" }
+{
+  "credentialId": "number — required, from calendars_list",
+  "calendar": "string — required: apple | google | office365"
+}
 ```
 
 ---
@@ -494,9 +501,10 @@ List all out-of-office entries.
 Create an out-of-office entry. Optionally redirect bookings to another user.
 ```json
 {
-  "start": "string — required, YYYY-MM-DD or ISO",
-  "end": "string — required, YYYY-MM-DD or ISO",
-  "notes": "string — optional, reason",
+  "start": "string — required, ISO 8601 UTC",
+  "end": "string — required, ISO 8601 UTC",
+  "reason": "string — optional: unspecified | vacation | travel | sick | public_holiday",
+  "notes": "string — optional",
   "toUserId": "number — optional, redirect bookings to this user"
 }
 ```
@@ -508,6 +516,7 @@ Update an out-of-office entry.
   "entryId": "number — required",
   "start": "string — optional",
   "end": "string — optional",
+  "reason": "string — optional",
   "notes": "string — optional",
   "toUserId": "number — optional"
 }
@@ -591,11 +600,11 @@ Get the default conferencing app.
 #### `conferencing_set_default`
 Set the default conferencing app for new event types.
 ```json
-{ "appSlug": "string — required, e.g. google-meet, zoom, daily-video" }
+{ "appSlug": "string — required: google-meet | zoom | msteams" }
 ```
 
 #### `conferencing_connect`
-Connect a conferencing app.
+Connect a conferencing app that needs no OAuth (today: google-meet). Zoom and Teams connect in the web app.
 ```json
 { "appSlug": "string — required" }
 ```
@@ -614,9 +623,9 @@ Disconnect a conferencing app.
 Set which calendar new bookings are written to (destination calendar).
 ```json
 {
-  "integration": "string — required, e.g. google_calendar, office365_calendar",
-  "externalId": "string — required, e.g. primary or calendar email",
-  "eventTypeId": "number — optional, scope to specific event type"
+  "integration": "string — required: google_calendar | office365_calendar | apple_calendar",
+  "externalId": "string — required, the calendar's externalId from calendars_list",
+  "delegationCredentialId": "string — optional, for delegated calendars"
 }
 ```
 
@@ -661,11 +670,11 @@ Get the Stripe Connect authorization URL to start the OAuth flow.
 ```
 
 #### `stripe_save_credentials`
-Save Stripe credentials after completing OAuth.
+Save Stripe credentials after completing OAuth (the callback's code and state).
 ```json
 {
   "code": "string — required, authorization code",
-  "state": "string — optional, OAuth state"
+  "state": "string — required, OAuth state"
 }
 ```
 

@@ -9,6 +9,10 @@ CLI and MCP server for the Cal.com API v2.
 - **Dev MCP:** `npm run dev:mcp`
 - **Type check:** `npm run typecheck`
 - **Tests:** `npm test` (node:test via tsx; pure helpers in `src/core/*.test.ts`)
+- **Spec audit:** `npm run audit:spec` runs every command against a mocked fetch and checks
+  the request against Cal.com's hosted OpenAPI spec. Run it after touching any command. A new
+  finding is a lead: confirm it live with bogus IDs or invalid bodies (no side effects) first,
+  because the older `cal-api-version` pins can still accept what the latest spec dropped.
 
 ## Architecture
 
@@ -44,3 +48,8 @@ Single `CommandDefinition` as source of truth — shared by CLI (Commander.js) a
 - `/slots` reads bare `start`/`end` dates as UTC days, whatever `timeZone` says. `link slots`
   sends the UTC instants of local midnight (`zonedDayStart` in `time.ts`) so days are local.
 - Rate limit: 120 req/min
+- POSTs are never retried after a timeout or 5xx (only 429s): a booking may already exist.
+- Routes that moved (verified live 2026-10-03): out-of-office is `/me/ooo`; slot holds are
+  `/slots/reservations` (body `slotStart`, version 2024-09-04); absence is `/mark-absent`;
+  booking location is `PATCH /bookings/{uid}/location`; `{calendar}` and `{app}` path segments
+  take a type or slug (google, google-meet), never a credential ID; destination calendar is PUT.

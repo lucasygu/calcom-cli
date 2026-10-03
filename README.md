@@ -259,9 +259,9 @@ calcom slots available [options]                 # Get available time slots
   --timezone <tz>           # Timezone for results
   --duration <min>          # Duration override
 
-calcom slots reserve --event-type-id <id> --slot-utc <iso>
+calcom slots reserve --event-type-id <id> --slot-utc <iso> [--slot-duration <min>] [--reservation-duration <min>]
 calcom slots get-reserved <uid>
-calcom slots update-reserved <uid> --slot-utc <iso>
+calcom slots update-reserved <uid> --event-type-id <id> --slot-utc <iso>
 calcom slots delete-reserved <uid>
 ```
 
@@ -270,9 +270,9 @@ calcom slots delete-reserved <uid>
 ```bash
 calcom calendars list                            # List connected calendars
 calcom calendars busy --date-from <date> --date-to <date>
-calcom calendars check <credentialId>            # Check connection status
-calcom calendars save-credentials --type <type> --username <user> --password <pass>
-calcom calendars disconnect <credentialId>
+calcom calendars check <apple|google|office365>  # Check connection status
+calcom calendars save-credentials --type apple --username <user> --password <pass>
+calcom calendars disconnect <credentialId> --calendar <apple|google|office365>
 ```
 
 ### Webhooks (5 commands)
@@ -305,7 +305,7 @@ calcom profile update [options]                  # Update profile
 
 ```bash
 calcom out-of-office list
-calcom out-of-office create --start <date> --end <date> [--notes <text>]
+calcom out-of-office create --start <iso> --end <iso> [--reason <vacation|travel|sick|public_holiday|unspecified>] [--notes <text>]
 calcom out-of-office update <entryId> [options]
 calcom out-of-office delete <entryId>
 ```
@@ -325,15 +325,15 @@ calcom teams delete <teamId>
 ```bash
 calcom conferencing list                         # List connected apps
 calcom conferencing default                      # Get default app
-calcom conferencing set-default --app-slug <slug>
-calcom conferencing connect --app-slug <slug>
+calcom conferencing set-default --app-slug <google-meet|zoom|msteams>
+calcom conferencing connect --app-slug google-meet   # OAuth apps connect in the web app
 calcom conferencing disconnect --app-slug <slug>
 ```
 
 ### Destination Calendars (1 command)
 
 ```bash
-calcom destination-calendars update --integration <type> --external-id <id>
+calcom destination-calendars update --integration <google_calendar|office365_calendar|apple_calendar> --external-id <id>
 ```
 
 ### Selected Calendars (2 commands)
@@ -348,7 +348,7 @@ calcom selected-calendars delete --integration <type> --external-id <id> --crede
 ```bash
 calcom stripe check                              # Check Stripe connection
 calcom stripe connect                            # Get Stripe Connect URL
-calcom stripe save-credentials --code <code>     # Save OAuth credentials
+calcom stripe save-credentials --code <code> --state <state>  # Finish the OAuth callback
 ```
 
 ## Global Options

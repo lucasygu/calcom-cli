@@ -55,16 +55,25 @@ export const slotsReserveCommand: CommandDefinition = {
   inputSchema: z.object({
     eventTypeId: z.coerce.number().describe('Event type ID'),
     slotUtc: z.string().describe('Slot start time in UTC (ISO 8601)'),
+    slotDuration: z.coerce.number().optional().describe('Slot length in minutes, for variable-length event types'),
+    reservationDuration: z.coerce.number().optional().describe('How many minutes to hold the slot'),
   }),
   cliMappings: {
     options: [
       { field: 'eventTypeId', flags: '--event-type-id <id>', description: 'Event type ID (required)' },
       { field: 'slotUtc', flags: '--slot-utc <iso>', description: 'Slot time in UTC (required)' },
+      { field: 'slotDuration', flags: '--slot-duration <min>', description: 'Slot length (variable-length events)' },
+      { field: 'reservationDuration', flags: '--reservation-duration <min>', description: 'Minutes to hold the slot' },
     ],
   },
-  endpoint: { method: 'POST', path: '/slots/reserve' },
-  fieldMappings: { eventTypeId: 'body', slotUtc: 'body' },
-  handler: (input, client) => executeCommand(slotsReserveCommand, input, client),
+  endpoint: { method: 'POST', path: '/slots/reservations' },
+  fieldMappings: {},
+  handler: async (input, client) => {
+    const body: Record<string, unknown> = { eventTypeId: input.eventTypeId, slotStart: input.slotUtc };
+    if (input.slotDuration !== undefined) body.slotDuration = input.slotDuration;
+    if (input.reservationDuration !== undefined) body.reservationDuration = input.reservationDuration;
+    return client.post('/slots/reservations', body);
+  },
 };
 
 export const slotsGetReservedCommand: CommandDefinition = {
@@ -79,7 +88,7 @@ export const slotsGetReservedCommand: CommandDefinition = {
   cliMappings: {
     args: [{ field: 'uid', name: 'uid', required: true }],
   },
-  endpoint: { method: 'GET', path: '/slots/reserved/{uid}' },
+  endpoint: { method: 'GET', path: '/slots/reservations/{uid}' },
   fieldMappings: { uid: 'path' },
   handler: (input, client) => executeCommand(slotsGetReservedCommand, input, client),
 };
@@ -89,22 +98,31 @@ export const slotsUpdateReservedCommand: CommandDefinition = {
   group: 'slots',
   subcommand: 'update-reserved',
   description: 'Update a reserved slot (change the held time)',
-  examples: ['calcom slots update-reserved abc123 --slot-utc "2025-03-20T11:00:00Z"'],
+  examples: ['calcom slots update-reserved abc123 --event-type-id 123 --slot-utc "2025-03-20T11:00:00Z"'],
   inputSchema: z.object({
     uid: z.string().describe('Reserved slot UID'),
     slotUtc: z.string().describe('New slot time in UTC (ISO 8601)'),
-    eventTypeId: z.coerce.number().optional().describe('Event type ID'),
+    eventTypeId: z.coerce.number().describe('Event type ID'),
+    slotDuration: z.coerce.number().optional().describe('Slot length in minutes, for variable-length event types'),
+    reservationDuration: z.coerce.number().optional().describe('How many minutes to hold the slot'),
   }),
   cliMappings: {
     args: [{ field: 'uid', name: 'uid', required: true }],
     options: [
       { field: 'slotUtc', flags: '--slot-utc <iso>', description: 'New slot time (required)' },
-      { field: 'eventTypeId', flags: '--event-type-id <id>', description: 'Event type ID' },
+      { field: 'eventTypeId', flags: '--event-type-id <id>', description: 'Event type ID (required)' },
+      { field: 'slotDuration', flags: '--slot-duration <min>', description: 'Slot length (variable-length events)' },
+      { field: 'reservationDuration', flags: '--reservation-duration <min>', description: 'Minutes to hold the slot' },
     ],
   },
-  endpoint: { method: 'PATCH', path: '/slots/reserved/{uid}' },
-  fieldMappings: { uid: 'path', slotUtc: 'body', eventTypeId: 'body' },
-  handler: (input, client) => executeCommand(slotsUpdateReservedCommand, input, client),
+  endpoint: { method: 'PATCH', path: '/slots/reservations/{uid}' },
+  fieldMappings: {},
+  handler: async (input, client) => {
+    const body: Record<string, unknown> = { eventTypeId: input.eventTypeId, slotStart: input.slotUtc };
+    if (input.slotDuration !== undefined) body.slotDuration = input.slotDuration;
+    if (input.reservationDuration !== undefined) body.reservationDuration = input.reservationDuration;
+    return client.patch(`/slots/reservations/${encodeURIComponent(input.uid)}`, body);
+  },
 };
 
 export const slotsDeleteReservedCommand: CommandDefinition = {
@@ -119,7 +137,7 @@ export const slotsDeleteReservedCommand: CommandDefinition = {
   cliMappings: {
     args: [{ field: 'uid', name: 'uid', required: true }],
   },
-  endpoint: { method: 'DELETE', path: '/slots/reserved/{uid}' },
+  endpoint: { method: 'DELETE', path: '/slots/reservations/{uid}' },
   fieldMappings: { uid: 'path' },
   handler: (input, client) => executeCommand(slotsDeleteReservedCommand, input, client),
 };

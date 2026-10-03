@@ -32,5 +32,6 @@ export async function executeCommand(
   if (method === 'GET') return client.get(path, query);
   if (method === 'DELETE') return client.delete(path, query);
   if (method === 'PATCH') return client.patch(path, Object.keys(body).length > 0 ? body : undefined);
+  if (method === 'PUT') return client.put(path, Object.keys(body).length > 0 ? body : undefined);
   return client.post(path, Object.keys(body).length > 0 ? body : undefined);
 }

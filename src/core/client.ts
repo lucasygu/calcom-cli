@@ -10,10 +10,14 @@ const DEFAULT_API_VERSION = '2024-08-13';
 const API_VERSION_BY_PREFIX: Array<[string, string]> = [
   ['/event-types', '2024-06-14'],
   ['/schedules', '2024-06-11'],
+  ['/slots/reservations', '2024-09-04'],
 ];
 // Exact-path pins, checked before the prefixes. The newer `/slots` endpoint
 // (params start/end/timeZone) needs 2024-09-04, while the legacy
-// `/slots/available` and `/slots/reserve` must stay on the default.
+// `/slots/available` must stay on the default.
+// The hosted OpenAPI spec lists newer versions for some resources (bookings
+// 2026-02-25, event-types 2026-06-12). These pins are older on purpose: the
+// request shapes here are those versions', and Cal.com still serves them.
 const API_VERSION_EXACT: Record<string, string> = {
   '/slots': '2024-09-04',
 };
@@ -73,7 +77,7 @@ export class CalcomClient {
       'Content-Type': 'application/json',
       Accept: 'application/json',
       'cal-api-version': apiVersionForPath(path),
-      'User-Agent': 'calcom-cli/0.2.0',
+      'User-Agent': 'calcom-cli/0.2.1',
     };
     if (this.apiKey) headers.Authorization = `Bearer ${this.apiKey}`;
     return headers;
@@ -87,6 +91,10 @@ export class CalcomClient {
   ): Promise<T> {
     const isWrite = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase());
     const timeout = isWrite ? WRITE_TIMEOUT : this.timeout;
+    // A POST that timed out or hit a 5xx may still have been applied (a booking
+    // created, a webhook added). Retrying it can do the thing twice, so only
+    // 429s, which Cal.com rejects before processing, are retried for POST.
+    const retryable = method.toUpperCase() !== 'POST';
 
     let url = `${this.baseUrl}${path}`;
     if (opts.query) {
@@ -149,6 +157,9 @@ export class CalcomClient {
           throw new RateLimitError(msg, retryAfter);
         }
         if (res.status >= 500) {
+          if (!retryable) {
+            throw new ServerError(`${msg} (not retried: this ${method} may have been applied; check before trying again)`, res.status);
+          }
           if (attempt < this.maxRetries) {
             await sleep(Math.pow(2, attempt) * 1000);
             return this.request<T>(method, path, opts, attempt + 1);
@@ -162,6 +173,9 @@ export class CalcomClient {
     } catch (err: any) {
       clearTimeout(timer);
       if (err.name === 'AbortError') {
+        if (!retryable) {
+          throw new Error(`Request timed out (not retried: this ${method} may have been applied; check before trying again)`);
+        }
         if (attempt < this.maxRetries) {
           await sleep(1000 * (attempt + 1));
           return this.request<T>(method, path, opts, attempt + 1);
@@ -182,6 +196,10 @@ export class CalcomClient {
 
   patch<T>(path: string, body?: unknown): Promise<T> {
     return this.request<T>('PATCH', path, { body });
+  }
+
+  put<T>(path: string, body?: unknown): Promise<T> {
+    return this.request<T>('PUT', path, { body });
   }
 
   delete<T>(path: string, query?: Record<string, unknown>): Promise<T> {

@@ -203,17 +203,18 @@ export const bookingsRescheduleCommand: CommandDefinition = {
   inputSchema: z.object({
     bookingUid: z.string().describe('Booking UID'),
     start: z.string().describe('New start time in ISO 8601'),
-    rescheduleReason: z.string().optional().describe('Reason for rescheduling'),
+    // The API field is `reschedulingReason`; `rescheduleReason` is rejected with a 400.
+    reschedulingReason: z.string().optional().describe('Reason for rescheduling'),
   }),
   cliMappings: {
     args: [{ field: 'bookingUid', name: 'bookingUid', required: true }],
     options: [
       { field: 'start', flags: '--start <iso>', description: 'New start time (required)' },
-      { field: 'rescheduleReason', flags: '--reason <text>', description: 'Reschedule reason' },
+      { field: 'reschedulingReason', flags: '--reason <text>', description: 'Reschedule reason' },
     ],
   },
   endpoint: { method: 'POST', path: '/bookings/{bookingUid}/reschedule' },
-  fieldMappings: { bookingUid: 'path', start: 'body', rescheduleReason: 'body' },
+  fieldMappings: { bookingUid: 'path', start: 'body', reschedulingReason: 'body' },
   handler: (input, client) => executeCommand(bookingsRescheduleCommand, input, client),
 };
 
@@ -235,7 +236,8 @@ export const bookingsMarkAbsenceCommand: CommandDefinition = {
       { field: 'attendees', flags: '--attendees <emails>', description: 'Absent attendee emails (comma-separated)' },
     ],
   },
-  endpoint: { method: 'POST', path: '/bookings/{bookingUid}/mark-absence' },
+  // The subcommand keeps its old name; the API route is /mark-absent.
+  endpoint: { method: 'POST', path: '/bookings/{bookingUid}/mark-absent' },
   fieldMappings: { bookingUid: 'path' },
   handler: async (input, client) => {
     const body: Record<string, unknown> = {};
@@ -243,7 +245,7 @@ export const bookingsMarkAbsenceCommand: CommandDefinition = {
     if (input.attendees) {
       body.attendees = input.attendees.split(',').map((e: string) => ({ email: e.trim(), absent: true }));
     }
-    const path = `/bookings/${encodeURIComponent(input.bookingUid)}/mark-absence`;
+    const path = `/bookings/${encodeURIComponent(input.bookingUid)}/mark-absent`;
     return client.post(path, body);
   },
 };
@@ -270,12 +272,12 @@ export const bookingsUpdateLocationCommand: CommandDefinition = {
   group: 'bookings',
   subcommand: 'update-location',
   description: 'Update the location/meeting link for a booking',
-  examples: ['calcom bookings update-location abc123 --type integration --integration "google_meet"'],
+  examples: ['calcom bookings update-location abc123 --type integration --integration google-meet'],
   inputSchema: z.object({
     bookingUid: z.string().describe('Booking UID'),
     type: z.string().describe('Location type: link, integration, address, phone'),
     link: z.string().optional().describe('Meeting link URL'),
-    integration: z.string().optional().describe('Integration name (e.g. google_meet, zoom)'),
+    integration: z.string().optional().describe('Integration slug (e.g. google-meet, zoom, cal-video)'),
     address: z.string().optional().describe('Physical address'),
     phone: z.string().optional().describe('Phone number'),
   }),
@@ -289,7 +291,7 @@ export const bookingsUpdateLocationCommand: CommandDefinition = {
       { field: 'phone', flags: '--phone <number>', description: 'Phone number' },
     ],
   },
-  endpoint: { method: 'PATCH', path: '/bookings/{bookingUid}' },
+  endpoint: { method: 'PATCH', path: '/bookings/{bookingUid}/location' },
   fieldMappings: { bookingUid: 'path' },
   handler: async (input, client) => {
     const location: Record<string, unknown> = { type: input.type };
@@ -297,7 +299,7 @@ export const bookingsUpdateLocationCommand: CommandDefinition = {
     if (input.integration) location.integration = input.integration;
     if (input.address) location.address = input.address;
     if (input.phone) location.phone = input.phone;
-    const path = `/bookings/${encodeURIComponent(input.bookingUid)}`;
+    const path = `/bookings/${encodeURIComponent(input.bookingUid)}/location`;
     return client.patch(path, { location });
   },
 };
